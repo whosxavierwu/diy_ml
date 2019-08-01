@@ -1,0 +1,5 @@
+mode: dev
+model_filename:
+
+dev_filename: e2e-dataset/devset.csv
+

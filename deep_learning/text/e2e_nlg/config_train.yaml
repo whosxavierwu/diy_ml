@@ -1,0 +1,7 @@
+mode: train
+
+train_filename: e2e-dataset/trainset.csv
+
+data-module: data/data_MLP
+model-module: model/model_MLP
+trainer-module: trainer/trainer_MLP

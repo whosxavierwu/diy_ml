@@ -1,0 +1,5 @@
+mode: test
+model_filename:
+
+test_filename: e2e-dataset/testset.csv
+
