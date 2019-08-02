@@ -65,7 +65,7 @@ class MLPData:
         df = pd.read_csv(filename, encoding='utf8', sep=',')
         df['mr_dict'] = df['mr'].apply(self.process_mr)
         for field in MR_FIELDS:
-            df[field] = df['mr_dict'].apply(lambda d: d[field])
+            df[field] = df['mr_dict'].apply(lambda d: d.get(field, ''))
         cols = MR_FIELDS
         if 'ref' in df.columns:
             df['tokens'] = df.apply(lambda r: self.process_ref(r), axis=1)
@@ -75,9 +75,10 @@ class MLPData:
 
 if __name__ == '__main__':
     data = MLPData({
-        'train_filename': 'e2e-dataset/trainset.csv',
-        'dev_filename': 'e2e-dataset/devset.csv',
-        'test_filename': 'e2e-dataset/testset.csv',
+        'train_filename': '../e2e-dataset/trainset.csv',
+        'dev_filename': '../e2e-dataset/devset.csv',
+        'test_filename': '../e2e-dataset/testset.csv',
     })
-    data.setup()
+    df_train, df_dev, df_test = data.setup()
+    print(df_train.shape, df_dev.shape, df_test.shape)
 
