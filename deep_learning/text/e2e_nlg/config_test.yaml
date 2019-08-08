@@ -11,6 +11,8 @@ trainer-module: components.trainer.trainer_MLP
 evaluator-module: components.evaluator.evaluator_MLP
 
 data_params:
+  train_filename: e2e-dataset/trainset.csv
+  dev_filename: e2e-dataset/devset.csv
   test_filename: e2e-dataset/testset.csv
   max_src_len: 50
   max_tgt_len: 50
