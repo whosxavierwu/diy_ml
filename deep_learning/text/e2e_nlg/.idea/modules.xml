@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://D:/NLG/e2e-nlg-challenge-2017/.idea/e2e-nlg-challenge-2017.iml" filepath="D:/NLG/e2e-nlg-challenge-2017/.idea/e2e-nlg-challenge-2017.iml" />
+      <module fileurl="file://D:/e2e-nlg-challenge-2017/.idea/e2e-nlg-challenge-2017.iml" filepath="D:/e2e-nlg-challenge-2017/.idea/e2e-nlg-challenge-2017.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/e2e_nlg.iml" filepath="$PROJECT_DIR$/.idea/e2e_nlg.iml" />
     </modules>
   </component>
