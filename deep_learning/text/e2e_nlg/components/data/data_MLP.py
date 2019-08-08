@@ -53,6 +53,7 @@ class MLPData:
         return d
 
     def process_ref(self, r):
+        # todo ths goes wrong with token
         sentence = r['ref'].replace(r['name'], NAME_TOKEN).replace(r['near'], NEAR_TOKEN)
         tokens = []
         for fragment in sentence.strip().split(" "):
@@ -81,4 +82,7 @@ if __name__ == '__main__':
     })
     df_train, df_dev, df_test = data.setup()
     print(df_train.shape, df_dev.shape, df_test.shape)
+    print(df_train.head())
+    print(df_dev.head())
+    print(df_test.head())
 
