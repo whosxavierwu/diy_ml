@@ -11,6 +11,7 @@ def main(config_dict):
     data_module = config_dict['data-module']
     model_module = config_dict['model-module']
     trainer_module = config_dict['trainer-module']
+
     mode = config_dict['mode']
 
     DataClass = importlib.import_module(data_module).component
