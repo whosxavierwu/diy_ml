@@ -7,7 +7,6 @@
     <orderEntry type="jdk" jdkName="Python 3.6" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="e2e-nlg-challenge-2017" />
-    <orderEntry type="module" module-name="e2e-nlg-challenge-2017" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="pytest" />

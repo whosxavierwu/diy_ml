@@ -1,10 +1,15 @@
 # -*- coding: utf8 -*-
 # Created by: wuzewei
 # Created by: 2019/8/8
+import logging
+
+logger = logging.getLogger("experiment")
+
 
 class MLPData:
     def setup(self):
         pass
+
 
 component = MLPData
 
