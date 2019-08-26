@@ -4,12 +4,14 @@
 import time
 import os
 import logging
+import numpy as np
 
 import torch
 
 from components.constants import *
 from components.utils import visualize
 from components.utils import serialization
+from components.utils import timing
 from components.evaluator.evaluator_MLP import MLPEvaluator
 
 logger = logging.getLogger("experiment")
@@ -41,10 +43,7 @@ class BaseTrainer(object):
         logger.info("Start training...")
         logger.debug(visualize.torch_summarize(model))
 
-        evaluator = MLPEvaluator(self.config)
-
         logger.debug("Preparing training data")
-
         train_batches = data.prepare_training_data(data.train, self.batch_size)
         dev_batches = data.prepare_training_data(data.dev, self.batch_size)
 
@@ -54,14 +53,14 @@ class BaseTrainer(object):
 
         self.set_optimizer(model, self.config['optimizer'])
         self.set_train_criterion(len(id2word), PAD_ID)
+        evaluator = MLPEvaluator(self.config)
 
-        if self.use_cuda:
-            model = model.cuda()
+        if self.use_cuda: model = model.cuda()
 
         for epoch_idx in range(1, self.n_epochs + 1):
             epoch_start_time = time.time()
             pred_fn = os.path.join(self.model_dir, 'predictions.epoch%d' % epoch_idx)
-            train_loss = self.train_epoch(epoch_idx, model, train_batches)
+            train_loss = self.train_epoch(model, train_batches)
             dev_loss = self.compute_val_loss(model, dev_batches)
             predicted_ids, attention_weights = evaluator.evaluate_model(model, data.dev[0])
             predicted_tokens = evaluator.lexicalize_predictions(predicted_ids, dev_lex, id2word)
@@ -80,17 +79,52 @@ class BaseTrainer(object):
             self.plot_training_results()
         logger.info("End training time=%s" % (time.time()-start_time))
 
-    def set_optimizer(self, model, param):
-        pass
+    def set_optimizer(self, model, opt_name):
+        opt_name = opt_name.lower()
+        logger.debug("Setting %s as optimizer" % opt_name)
+        if opt_name == 'sgd':
+            self.optimizer = torch.optim.SGD(params=model.parameters(), lr=self.lr)
+        elif opt_name == 'adam':
+            self.optimizer = torch.optim.Adam(params=model.parameters(), lr=self.lr)
+        elif opt_name == 'rmsprop':
+            self.optimizer = torch.optim.RMSprop(params=model.parameters(), lr=self.lr)
+        else:
+            raise NotImplementedError()
 
-    def set_train_criterion(self, param, PAD_ID):
-        pass
+    def set_train_criterion(self, *args, **kwargs):
+        raise NotImplementedError()
 
-    def train_epoch(self, epoch_idx, model, train_batches):
-        pass
+    def train_epoch(self, model, train_batches):
+        np.random.shuffle(train_batches)
+        running_losses = []
+        epoch_losses = []
+        num_train_batches = len(train_batches)
+        bar = timing.create_progress_bar('train_loss')
+        for pair_idx in bar(range(num_train_batches)):
+            self.optimizer.zero_grad()  # why not random?
+            loss_var = self.train_step(model, train_batches[pair_idx])
+            loss_data = loss_var.data.item()
+            loss_var.backward()
+            self.optimizer.step()
+            running_losses = ([loss_data] + running_losses)[:20]
+            bar.dynamic_messages['train_loss'] = np.mean(running_losses)
+            epoch_losses.append(loss_data)
+        epoch_loss_avg = np.mean(epoch_losses)
+        return epoch_loss_avg
 
     def compute_val_loss(self, model, dev_batches):
-        pass
+        total_loss = 0
+        running_losses = []
+        num_dev_batches = len(dev_batches)
+        bar = timing.create_progress_bar('dev_loss')
+        for batch_idx in bar(range(num_dev_batches)):
+            loss_var = self.train_step(model, dev_batches[batch_idx])
+            loss_data = loss_var.data.item()
+            running_losses= ([loss_data] + running_losses)[:20]
+            bar.dynamic_messages['dev_loss'] = np.mean(running_losses)
+            total_loss += loss_data
+        total_loss_avg = total_loss / num_dev_batches
+        return total_loss_avg
 
     def record_loss(self, train_loss, dev_loss):
         pass
@@ -105,6 +139,9 @@ class BaseTrainer(object):
         pass
 
     def plot_training_results(self):
+        pass
+
+    def train_step(self, model, param):
         pass
 
 
