@@ -60,18 +60,14 @@ def main(config_dict):
             predicted_ids, attention_weights = evaluator.evaluate_model(model, data.dev[0])
             data_lexicalizations = data.lexicalizations['dev']
             predictions_file = "%s.devset.predictions.txt" % model_filename
-            predicted_sentences = evaluator.lexicalize_predictions(
-                predicted_ids, data_lexicalizations, id2word
-            )
+            predicted_sentences = evaluator.lexicalize_predictions(predicted_ids, dev_lex, id2word)
             serialization.save_predictions_txt(predicted_sentences, predictions_file)
         if 'test' in data.filenames:
             logger.info("Predicting on test data")
-            predicted_ids, attention_weights = evaluator.evaluate_model(model, data.test[0])
+            predicted_ids, attention_weights = evaluator.evaluate_model(model, data.dev[0])
             data_lexicalizations = data.lexicalizations['test']
             predictions_file = "%s.testset.predictions.txt" % model_filename
-            predicted_sentences = evaluator.lexicalize_predictions(
-                predicted_ids, data_lexicalizations, id2word
-            )
+            predicted_sentences = evaluator.lexicalize_predictions(predicted_ids, dev_lex, id2word)
             serialization.save_predictions_txt(predicted_sentences, predictions_file)
     else:
         logger.error("Check the 'mode' field in the config file!")

@@ -61,3 +61,9 @@ if __name__ == '__main__':
     pass
 
 
+def save_model(model, param):
+    return None
+
+
+def save_scores(scores, score_file_header, score_fname):
+    return None
