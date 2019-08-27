@@ -19,7 +19,7 @@ logger = logging.getLogger("experiment")
 
 class BaseTrainer(object):
     def  __init__(self, config):
-        self.score_file_header = None
+        self.score_file_header = ['bleu', 'nist', 'cider', 'rouge', 'meteor', 'train_loss', 'dev_loss']
         self.config = config
         # init params
         self.n_epochs = self.config['n_epochs']
@@ -139,7 +139,13 @@ class BaseTrainer(object):
         pass
 
     def get_scores_to_save(self):
-        pass
+        return list(zip(self.bleu_scores,
+                          self.nist_scores,
+                          self.cider_scores,
+                          self.rouge_scores,
+                          self.meteor_scores,
+                          self.train_losses,
+                          self.dev_losses))
 
     def plot_training_results(self):
         pass

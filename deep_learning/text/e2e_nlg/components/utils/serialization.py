@@ -3,8 +3,11 @@
 # Created by: 2019/8/8
 import os
 import codecs
+import csv
 from datetime import datetime as dt
 import logging
+
+import torch
 
 logger = logging.getLogger('experiment')
 
@@ -57,13 +60,21 @@ def save_predictions_txt(predictions, predictions_file):
             raise NotImplementedError()
 
 
+def save_model(model, model_fn):
+    logger.info("Saving model to %s" % model_fn)
+    torch.save(model.state_dict(), open(model_fn, 'wb'))
+
+
+def save_scores(scores, header, fname):
+    with open(fname, 'w') as csv_out:
+        csv_writer = csv.writer(csv_out, delimiter=',')
+        csv_writer.writerow(header)
+        for ep_socres in scores:
+            csv_writer.writerow(ep_socres)
+    logger.info("Scores saved to %s" % fname)
+
+
 if __name__ == '__main__':
     pass
 
 
-def save_model(model, param):
-    return None
-
-
-def save_scores(scores, score_file_header, score_fname):
-    return None
