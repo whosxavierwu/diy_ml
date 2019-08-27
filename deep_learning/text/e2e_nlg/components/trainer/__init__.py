@@ -127,9 +127,12 @@ class BaseTrainer(object):
         return total_loss_avg
 
     def record_loss(self, train_loss, dev_loss):
-        pass
+        self.train_losses.append(train_loss)
+        self.dev_losses.append(dev_loss)
+        logger.info("tloss=%0.5f, dloss=%0.5f" % (train_loss, dev_loss))
 
-    def run_external_eval(self, dev_multi_ref_fn, pred_fn):
+    def run_external_eval(self, ref_fn, pred_fn):
+        # todo measure_scores.py not found!
         pass
 
     def plot_lcurve(self):
