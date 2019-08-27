@@ -29,11 +29,17 @@ class VocabularyBase(object):
         token_set = set()
         for x in raw_data:
             for tok in x:
-                tok = tok.lower() if self.lower else tok
+                tok = str(tok)
+                try:
+                    tok = tok.lower() if self.lower else tok
+                except Exception as e:
+                    print(x)
+                    raise e
                 token_set.add(tok)
         return list(token_set)
 
     def get_word(self, key, default=UNK_ID):
+        key = str(key)
         key = key.lower() if self.lower else key
         val = self.tok2id.get(key, default)
         return val

@@ -28,7 +28,7 @@ class MLPData(BaseData):
                 lex[1] = raw_val
             else:
                 mr_val = raw_val
-            mr_data[key_idx] = mr_val
+            mr_data[key_idx] = str(mr_val)
         return mr_data, lex
 
     def data_to_token_ids_train(self, train_x_raw, train_y_raw):
@@ -73,7 +73,7 @@ class MLPData(BaseData):
     def prepare_training_data(self, xy_ids, batch_size):
         sorted_data = sorted(zip(*xy_ids), key=lambda p: len(p[0]), reverse=True)
         data_size = len(sorted_data)
-        num_batches = data_size
+        num_batches = data_size // batch_size
         data_indices = self.index_data(data_size, mode="no_shuffling")
         batch_pairs = []
         for bi in range(num_batches):

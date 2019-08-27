@@ -21,7 +21,7 @@ class BaseData(object):
         self.max_src_len = self.config_dict['max_src_len']
         self.max_tgt_len = self.config_dict['max_tgt_len']
         self.vocab = None
-        self.filenames = {}
+        self.fnames = {}
         self.lexicalizations = {
             'train': None,
             'dev': None,
@@ -66,20 +66,21 @@ class BaseData(object):
         # tokenize data
         if train_x_raw is not None:
             self.train = self.data_to_token_ids_train(train_x_raw, train_y_raw)
-            self.filenames['train'] = train_filename
+            self.fnames['train'] = train_filename
         if dev_x_raw is not None:
             self.dev = self.data_to_token_ids_train(dev_x_raw, dev_y_raw)
-            self.filenames['dev'] = dev_filename
+            self.fnames['dev'] = dev_filename
         if test_x_raw is not None:
             self.test = self.data_to_token_ids_test(test_x_raw)
-            self.filenames['test'] = test_filename
+            self.fnames['test'] = test_filename
 
     def read_csv_train(self, train_filename, group_ref=False):
-        raw_data_x = raw_data_y = []
+        raw_data_x = []
+        raw_data_y = []
         lexicalizations = []
 
         orig = []
-        with codecs.open(train_filename, 'r') as fin:
+        with open(train_filename, 'r', encoding='utf8') as fin:
             reader = csv.reader(fin, delimiter=',', quotechar='"')
             header = next(reader)
             assert header == ['mr', 'ref']
@@ -113,7 +114,7 @@ class BaseData(object):
     def read_csv_test(self, test_filename):
         raw_data_x = []
         lexicalizations = []
-        with codecs.open(test_filename, 'r') as fin:
+        with codecs.open(test_filename, 'r', encoding='utf8') as fin:
             reader = csv.reader(test_filename, delimiter=',', quotechar='"')
             header = next(reader)
             for row in list(reader):
