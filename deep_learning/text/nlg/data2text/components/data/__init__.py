@@ -1,9 +1,13 @@
 # -*- coding: utf8 -*-
 # Created by: wuzewei
 # Created by: 2019/8/27
+from typing import Dict, Any, List
 
 
 class BaseRecord(object):
+    _ref: str
+    _mr: Dict[str, str]
+
     def __init__(self):
         self._mr = {}
         self._ref = ""
@@ -22,22 +26,12 @@ class BaseRecord(object):
 
 
 class BaseData(object):
+    records: List[BaseRecord]
+
     def __init__(self):
-        # it should be list of BaseRecords
-        self.train = None
-        self.dev = None
-        self.test = None
+        self.records = []
 
-    def read_data(self):
-        raise NotImplementedError()
-
-    def get_train_set(self):
-        raise NotImplementedError()
-
-    def get_test_set(self):
-        raise NotImplementedError()
-
-    def split(self):
+    def read_from_file(self, filename: str):
         raise NotImplementedError()
 
 

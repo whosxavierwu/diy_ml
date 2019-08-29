@@ -2,6 +2,9 @@
 # Created by: wuzewei
 # Created by: 2019/8/27
 
+class BaseModel(object):
+    pass
+
 
 if __name__ == '__main__':
     pass
