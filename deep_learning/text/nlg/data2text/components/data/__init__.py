@@ -8,9 +8,9 @@ class BaseRecord(object):
     _ref: str
     _mr: Dict[Any, Any]
 
-    def __init__(self):
-        self._mr = {}
-        self._ref = ""
+    def __init__(self, mr: dict = None, ref: str = ""):
+        self._mr = {} if mr is None else mr
+        self._ref = ref
 
     @property
     def mr(self): return self._mr
