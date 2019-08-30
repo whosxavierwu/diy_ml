@@ -1,0 +1,38 @@
+experiments_dir: experiments
+log_level: INFO
+log_file: experiments/tmp.log
+random_seed: 1
+
+mode: train
+
+data-module: components.data.data_MLP
+model-module: components.model.model_MLP
+trainer-module: components.trainer.trainer_MLP
+evaluator-module: components.evaluator.evaluator_MLP
+
+data_params:
+  train_filename: e2e-dataset/trainset.csv
+  dev_filename: e2e-dataset/devset.csv
+  max_src_len: 50
+  max_tgt_len: 50
+
+model_params:
+  embedding_dim: 256
+  embedding_dropout: 0.1
+  teacher_forcing_ratio: 1.0  # ?
+  encoder_params:
+    input_size: 256  # equal to embedding_dim
+    hidden_size: 512
+    dropout: 0.0
+  decoder_params:
+    input_size: 512
+    hidden_size: 512
+    dropout: 0.0
+
+trainer_params:
+  n_epochs: 50
+  batch_size: 512
+  optimizer: SGD
+  learning_rate: 0.1
+  evaluate_prediction: False
+  save_model_each_epoch: True

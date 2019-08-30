@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 
 class BaseRecord(object):
     _ref: str
-    _mr: Dict[str, str]
+    _mr: Dict[Any, Any]
 
     def __init__(self):
         self._mr = {}
@@ -31,7 +31,10 @@ class BaseData(object):
     def __init__(self):
         self.records = []
 
-    def read_from_file(self, filename: str):
+    def setup(self, configs: dict):
+        raise NotImplementedError()
+
+    def save(self):
         raise NotImplementedError()
 
 
