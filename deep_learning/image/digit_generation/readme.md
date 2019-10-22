@@ -1,9 +1,3 @@
-# Generate digit picture
+# Generate digits' pictures
 
-### Input
-
-a digit 
-
-### Output 
-
-a handwriting picture of the digit
+Given an integer, generate one or more handwriting pictures.
