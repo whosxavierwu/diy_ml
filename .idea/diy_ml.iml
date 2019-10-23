@@ -3,6 +3,8 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/deep_learning/text/nlg/data2text" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/deep_learning/image/digit_generation" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/deep_learning/image/digit_generation/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/e2e_nlg/e2e-dataset" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/nlg/data2text/tmp" />
     </content>
