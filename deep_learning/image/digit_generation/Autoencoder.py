@@ -17,13 +17,14 @@ import tensorflow as tf
 # from tensorflow.keras import utils as K_utils
 # from tensorflow.keras import optimizers as K_optimizers
 # from tensorflow.keras import backend as K_backend
+# from tensorflow.keras.callbacks import ModelCheckpoint
+
 from keras import datasets as K_datasets
 from keras import models as K_models
 from keras import layers as K_layers
 from keras import utils as K_utils
 from keras import optimizers as K_optimizers
 from keras import backend as K_backend
-
 from keras.callbacks import ModelCheckpoint
 
 from callbacks import CustomCallback, step_decay_schedule
@@ -160,7 +161,6 @@ class Autoencoder:
             initial_epoch=initial_epoch,
             callbacks=callbacks_list
         )
-        return
 
     def save(self, folder):
         if not os.path.exists(folder):
