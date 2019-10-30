@@ -34,7 +34,8 @@ class Autoencoder:
     def __init__(self,
                  input_dim, z_dim,
                  encoder_conv_settings, decoder_conv_settings,
-                 is_variational=True, use_batch_norm=False, use_dropout=False):
+                 is_variational=True,
+                 use_batch_norm=False, use_dropout=False):
         self.input_dim = input_dim
         self.z_dim = z_dim
         self.encoder_conv_settings = encoder_conv_settings  # filters, kernel size, strides
@@ -42,6 +43,12 @@ class Autoencoder:
         self.is_variational = is_variational
         self.use_batch_norm = use_batch_norm
         self.use_dropout = use_dropout
+        self.encoder = None
+        self.decoder = None
+        self.model = None
+        self.mu = None
+        self.log_var = None
+        self.learning_rate = None
         self._build()
         return
 
@@ -64,7 +71,7 @@ class Autoencoder:
                 x = K_layers.BatchNormalization()(x)
             x = K_layers.LeakyReLU()(x)
             if self.use_dropout:
-                x = K_layers.Dropout(0.25)(x)
+                x = K_layers.Dropout(rate=0.25)(x)
         # Flatten layer
         shape_before_flatten = K_backend.int_shape(x)[1:]
         x = K_layers.Flatten()(x)
@@ -72,13 +79,11 @@ class Autoencoder:
         if self.is_variational:
             self.mu = K_layers.Dense(self.z_dim, name='mu')(x)
             self.log_var = K_layers.Dense(self.z_dim, name='log_var')(x)
-
-            def __sampling(args):
-                mu, log_var = args
-                epsilon = K_backend.random_normal(shape=K_backend.shape(mu), mean=0, stddev=1)
-                return mu + K_backend.exp(log_var / 2) * epsilon  # mu + sigma * epsilon
-
-            encoder_output = K_layers.Lambda(__sampling, name='encoder_output')([self.mu, self.log_var])
+            # sampling: mu + sigma * epsilon
+            encoder_output = K_layers.Lambda(
+                lambda args: args[0] + K_backend.exp(args[1] / 2) * K_backend.random_normal(K_backend.shape(args[0])),
+                name='encoder_output'
+            )([self.mu, self.log_var])
         else:
             encoder_output = K_layers.Dense(self.z_dim, name='encoder_output')(x)
 
@@ -118,7 +123,7 @@ class Autoencoder:
             return K_backend.mean(K_backend.square(y_true - y_pred), axis=[1, 2, 3])
 
         def __kl_loss(y_true, y_pred):
-            # todo what's KL divergence?
+            # https://en.wikipedia.org/wiki/Kullback–Leibler_divergence
             return -0.5 * K_backend.sum(
                 1 + self.log_var - K_backend.square(self.mu) - K_backend.exp(self.log_var),
                 axis=1
@@ -148,8 +153,11 @@ class Autoencoder:
         custom_callback = CustomCallback(run_folder, print_every_n_batches, initial_epoch, self)
         lr_schedule = step_decay_schedule(self.learning_rate, lr_decay, step_size=1)
 
-        checkpoint_filepath1 = os.path.join(run_folder, 'weights/weights-{epoch:03d}-{loss:.2f}.h5')
-        checkpoint_filepath2 = os.path.join(run_folder, 'weights/weights.h5')
+        weight_folder = os.path.join(run_folder, 'weights/')
+        if not os.path.exists(weight_folder):
+            os.makedirs(weight_folder)
+        checkpoint_filepath1 = os.path.join(weight_folder, 'weights-{epoch:03d}-{loss:.2f}.h5')
+        checkpoint_filepath2 = os.path.join(weight_folder, 'weights.h5')
         checkpoint1 = ModelCheckpoint(checkpoint_filepath1, save_weights_only=True, verbose=1)
         checkpoint2 = ModelCheckpoint(checkpoint_filepath2, save_weights_only=True, verbose=1)
         callbacks_list = [checkpoint1, checkpoint2, custom_callback, lr_schedule]
@@ -160,6 +168,32 @@ class Autoencoder:
             epochs=epochs,
             initial_epoch=initial_epoch,
             callbacks=callbacks_list
+        )
+
+    def train_with_generator(self, data_flow, epochs, steps_per_epoch, run_folder, print_every_n_batches=100,
+                             initial_epoch=0, lr_decay=1, ):
+
+        custom_callback = CustomCallback(run_folder, print_every_n_batches, initial_epoch, self)
+        lr_sched = step_decay_schedule(initial_lr=self.learning_rate, decay_factor=lr_decay, step_size=1)
+
+        weight_folder = os.path.join(run_folder, 'weights/')
+        if not os.path.exists(weight_folder):
+            os.makedirs(weight_folder)
+        checkpoint_filepath = os.path.join(weight_folder, "weights-{epoch:03d}-{loss:.2f}.h5")
+        checkpoint1 = ModelCheckpoint(checkpoint_filepath, save_weights_only=True, verbose=1)
+        checkpoint2 = ModelCheckpoint(os.path.join(weight_folder, 'weights.h5'), save_weights_only=True, verbose=1)
+
+        callbacks_list = [checkpoint1, checkpoint2, custom_callback, lr_sched]
+
+        self.model.save_weights(os.path.join(weight_folder, 'weights.h5'))
+
+        self.model.fit_generator(
+            data_flow
+            , shuffle=True
+            , epochs=epochs
+            , initial_epoch=initial_epoch
+            , callbacks=callbacks_list
+            , steps_per_epoch=steps_per_epoch
         )
 
     def save(self, folder):
@@ -186,11 +220,14 @@ class Autoencoder:
         return
 
     def plot_model(self, run_folder):
-        K_utils.plot_model(self.model, os.path.join(run_folder, 'viz/model.png'),
+        viz_folder = os.path.join(run_folder, 'viz/')
+        if not os.path.exists(viz_folder):
+            os.makedirs(viz_folder)
+        K_utils.plot_model(self.model, os.path.join(viz_folder, 'model.png'),
                            show_shapes=True, show_layer_names=True)
-        K_utils.plot_model(self.encoder, os.path.join(run_folder, 'viz/encoder.png'),
+        K_utils.plot_model(self.encoder, os.path.join(viz_folder, 'encoder.png'),
                            show_shapes=True, show_layer_names=True)
-        K_utils.plot_model(self.decoder, os.path.join(run_folder, 'viz/decoder.png'),
+        K_utils.plot_model(self.decoder, os.path.join(viz_folder, 'decoder.png'),
                            show_shapes=True, show_layer_names=True)
         return
 

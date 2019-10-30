@@ -16,7 +16,9 @@ def load_mnist():
 
 
 def load_CelebA(data_folder):
-    data_gen = ImageDataGenerator(rescale=1./255)
+    data_gen = ImageDataGenerator(
+        rescale=1./255
+    )
     data_flow = data_gen.flow_from_directory(
         data_folder,
         target_size=(128, 128),
