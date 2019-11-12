@@ -8,6 +8,7 @@
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/image/digit_generation/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/e2e_nlg/e2e-dataset" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/nlg/data2text/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/machine_learning/classification/sentiment_classification/tmp" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (tf2)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
