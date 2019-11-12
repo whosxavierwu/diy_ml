@@ -7,10 +7,12 @@ import keras_radam as Radam
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from keras import backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.layers import *
 from keras.models import Model, load_model
 from keras_bert import load_trained_model_from_checkpoint, Tokenizer, get_custom_objects
+
 
 # roberta_zh_large_model from: https://github.com/brightmart/roberta_zh
 CONFIG_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/bert_config_large.json'
@@ -18,8 +20,8 @@ CHECKPOINT_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/roberta_zh_large_model.ckpt'
 DICT_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/vocab.txt'
 
 CONFIG = {
-    'max_len': 1024,  # todo maxlen 需要调大一些 或者提前预处理把数据剪掉一些
-    'batch_size': 6,
+    'max_len': 128,  # todo maxlen 需要调大一些 或者提前预处理把数据剪掉一些
+    'batch_size': 1,
     'epochs': 32,
     'use_multiprocessing': True,
     'model_dir': os.path.join('model_files/bert'),
@@ -171,17 +173,47 @@ class BertClassify:
         )
         callbacks = [save, early_stopping]
 
-        train_D = DataGenerator(train_data, self.tokenizer)
-        valid_D = DataGenerator(valid_data, self.tokenizer)
-        self.model.fit_generator(
-            train_D.__iter__(),
-            steps_per_epoch=len(train_D),
+        idxs = list(range(len(train_data)))
+        np.random.shuffle(idxs)
+        X1, X2, Y = [], [], []
+        for i in idxs:
+            d = train_data[i]
+            x1, x2 = self.tokenizer.encode(first=d[0][:CONFIG['max_len']])
+            # y = d[1]
+            if d[1] == -1:
+                y = [1, 0, 0]
+            elif d[1] == 1:
+                y = [0, 0, 1]
+            else:
+                y = [0, 1, 0]
+
+            X1.append(x1)
+            X2.append(x2)
+            Y.append(y)
+        X1 = seq_padding(X1)
+        X2 = seq_padding(X2)
+        Y = seq_padding(Y)
+
+        self.model.fit(
+            x=[X1, X2],
+            y=Y,
+            batch_size=CONFIG['batch_size'],
             epochs=CONFIG['epochs'],
             callbacks=callbacks,
-            validation_data=valid_D.__iter__(),
-            use_multiprocessing=CONFIG['use_multiprocessing'],
-            validation_steps=len(valid_D)
+            validation_split=0.2,
+            use_multiprocessing=CONFIG['use_multiprocessing']
         )
+        # train_D = DataGenerator(train_data, self.tokenizer)
+        # valid_D = DataGenerator(valid_data, self.tokenizer)
+        # self.model.fit_generator(
+        #     train_D.__iter__(),
+        #     steps_per_epoch=len(train_D),
+        #     epochs=CONFIG['epochs'],
+        #     callbacks=callbacks,
+        #     validation_data=valid_D.__iter__(),
+        #     use_multiprocessing=CONFIG['use_multiprocessing'],
+        #     validation_steps=len(valid_D)
+        # )
         return
 
     def predict(self, test_data):
@@ -232,7 +264,27 @@ if __name__ == "__main__":
     data['label'] = data['label'].apply(lambda label: {'positive': 1, 'neutral': 0, 'negative': -1}[label])
     train_data, valid_data = split_train_test(data, 'text_a', 'label', train_size=0.8)
     # 建模 训练
-    model = BertClassify(is_train=True)
-    model.train(train_data, valid_data)
+    # K.clear_session()
+    with tf.device('/CPU:0'):
+        model = BertClassify(is_train=True)
+        model.train(train_data, valid_data)
     print('DONE!')
+
+    # tf.debugging.set_log_device_placement(True)
+    # gpus = tf.config.experimental.list_physical_devices('GPU')
+    # print("Num GPUs Available: ", len(gpus))
+    # if gpus:
+    #     try:
+    #         for gpu in gpus:
+    #             # Currently, memory growth needs to be the same across GPUs
+    #             tf.config.experimental.set_memory_growth(gpu, True)
+    #         # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+    #         tf.config.experimental.set_virtual_device_configuration(
+    #             gpus[0],
+    #             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)]
+    #         )
+    #         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    #     except RuntimeError as e:
+    #         print(e)
 
