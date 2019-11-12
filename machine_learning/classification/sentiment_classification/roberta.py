@@ -19,12 +19,18 @@ CONFIG_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/bert_config_large.json'
 CHECKPOINT_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/roberta_zh_large_model.ckpt'
 DICT_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/vocab.txt'
 
+# CONFIG_PATH = 'tmp/roberta_zh_L-6-H-768_A-12/bert_config.json'
+# CHECKPOINT_PATH = 'tmp/roberta_zh_L-6-H-768_A-12/bert_model.ckpt'
+# DICT_PATH = 'tmp/roberta_zh_L-6-H-768_A-12/vocab.txt'
+
 CONFIG = {
-    'max_len': 128,  # todo maxlen 需要调大一些 或者提前预处理把数据剪掉一些
+    'max_len': 500,
     'batch_size': 1,
-    'epochs': 32,
+    'epochs': 100,
     'use_multiprocessing': True,
-    'model_dir': os.path.join('model_files/bert'),
+    'model_dir': os.path.join('tmp/model-bert'),
+    'use_gpu': False,
+    # 'trainable_layers': 12,
 }
 
 
@@ -72,45 +78,6 @@ class OurTokenizer(Tokenizer):
         return R
 
 
-class DataGenerator:
-    def __init__(self, data, tokenizer, batch_size=CONFIG['batch_size']):
-        self.data = data
-        self.tokenizer = tokenizer
-        self.batch_size = batch_size
-        self.steps = len(self.data) // self.batch_size
-        if len(self.data) % self.batch_size != 0:
-            self.steps += 1
-
-    def __len__(self):
-        return self.steps
-
-    def __iter__(self):
-        while True:
-            idxs = list(range(len(self.data)))
-            np.random.shuffle(idxs)
-            X1, X2, Y = [], [], []
-            for i in idxs:
-                d = self.data[i]
-                x1, x2 = self.tokenizer.encode(first=d[0][:CONFIG['max_len']])
-                # y = d[1]
-                if d[1] == -1:
-                    y = [1, 0, 0]
-                elif d[1] == 1:
-                    y = [0, 0, 1]
-                else:
-                    y = [0, 1, 0]
-
-                X1.append(x1)
-                X2.append(x2)
-                Y.append(y)
-                if len(X1) == self.batch_size or i == idxs[-1]:
-                    X1 = seq_padding(X1)
-                    X2 = seq_padding(X2)
-                    Y = seq_padding(Y)
-                    yield [X1, X2], Y
-                    [X1, X2, Y] = [], [], []
-
-
 class BertClassify:
     def __init__(self, is_train=True):
         if is_train:
@@ -119,6 +86,7 @@ class BertClassify:
                 checkpoint_file=CHECKPOINT_PATH
             )
             # for layer in self.bert_model.layers[: -CONFIG['trainable_layers']]:
+            #     layer.trainable = True
             for layer in self.bert_model.layers:
                 layer.trainable = True
         self.model = None
@@ -150,6 +118,29 @@ class BertClassify:
         self.model.summary()
         return
 
+    def __preprocess(self, data):
+        idxs = list(range(len(data)))
+        np.random.shuffle(idxs)
+        X1, X2, Y = [], [], []
+        for i in idxs:
+            d = data[i]
+            x1, x2 = self.tokenizer.encode(first=d[0][:CONFIG['max_len']])
+            # y = d[1]
+            if d[1] == -1:
+                y = [1, 0, 0]
+            elif d[1] == 1:
+                y = [0, 0, 1]
+            else:
+                y = [0, 1, 0]
+
+            X1.append(x1)
+            X2.append(x2)
+            Y.append(y)
+        X1 = seq_padding(X1)
+        X2 = seq_padding(X2)
+        Y = seq_padding(Y)
+        return [X1, X2], Y
+
     def train(self, train_data, valid_data):
         """
         训练
@@ -173,47 +164,18 @@ class BertClassify:
         )
         callbacks = [save, early_stopping]
 
-        idxs = list(range(len(train_data)))
-        np.random.shuffle(idxs)
-        X1, X2, Y = [], [], []
-        for i in idxs:
-            d = train_data[i]
-            x1, x2 = self.tokenizer.encode(first=d[0][:CONFIG['max_len']])
-            # y = d[1]
-            if d[1] == -1:
-                y = [1, 0, 0]
-            elif d[1] == 1:
-                y = [0, 0, 1]
-            else:
-                y = [0, 1, 0]
-
-            X1.append(x1)
-            X2.append(x2)
-            Y.append(y)
-        X1 = seq_padding(X1)
-        X2 = seq_padding(X2)
-        Y = seq_padding(Y)
+        X_train, Y_train = self.__preprocess(train_data)
+        X_valid, Y_valid = self.__preprocess(valid_data)
 
         self.model.fit(
-            x=[X1, X2],
-            y=Y,
+            x=X_train,
+            y=Y_train,
             batch_size=CONFIG['batch_size'],
             epochs=CONFIG['epochs'],
             callbacks=callbacks,
-            validation_split=0.2,
+            validation_data=(X_valid, Y_valid),
             use_multiprocessing=CONFIG['use_multiprocessing']
         )
-        # train_D = DataGenerator(train_data, self.tokenizer)
-        # valid_D = DataGenerator(valid_data, self.tokenizer)
-        # self.model.fit_generator(
-        #     train_D.__iter__(),
-        #     steps_per_epoch=len(train_D),
-        #     epochs=CONFIG['epochs'],
-        #     callbacks=callbacks,
-        #     validation_data=valid_D.__iter__(),
-        #     use_multiprocessing=CONFIG['use_multiprocessing'],
-        #     validation_steps=len(valid_D)
-        # )
         return
 
     def predict(self, test_data):
@@ -264,27 +226,33 @@ if __name__ == "__main__":
     data['label'] = data['label'].apply(lambda label: {'positive': 1, 'neutral': 0, 'negative': -1}[label])
     train_data, valid_data = split_train_test(data, 'text_a', 'label', train_size=0.8)
     # 建模 训练
-    # K.clear_session()
-    with tf.device('/CPU:0'):
-        model = BertClassify(is_train=True)
-        model.train(train_data, valid_data)
+
+    tf.debugging.set_log_device_placement(False)
+
+    if CONFIG['use_gpu']:
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        print("Num GPUs Available: ", len(gpus))
+        if gpus:
+            try:
+                for gpu in gpus:
+                    # Currently, memory growth needs to be the same across GPUs
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+                tf.config.experimental.set_virtual_device_configuration(
+                    gpus[0],
+                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)]
+                )
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+                model = BertClassify(is_train=True)
+                model.train(train_data, valid_data)
+            except RuntimeError as e:
+                print(e)
+    else:
+        with tf.device('/CPU:0'):
+            model = BertClassify(is_train=True)
+            model.train(train_data, valid_data)
     print('DONE!')
 
-    # tf.debugging.set_log_device_placement(True)
-    # gpus = tf.config.experimental.list_physical_devices('GPU')
-    # print("Num GPUs Available: ", len(gpus))
-    # if gpus:
-    #     try:
-    #         for gpu in gpus:
-    #             # Currently, memory growth needs to be the same across GPUs
-    #             tf.config.experimental.set_memory_growth(gpu, True)
-    #         # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
-    #         tf.config.experimental.set_virtual_device_configuration(
-    #             gpus[0],
-    #             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)]
-    #         )
-    #         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    #     except RuntimeError as e:
-    #         print(e)
+
 
