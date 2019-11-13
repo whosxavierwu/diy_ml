@@ -203,7 +203,7 @@ if __name__ == "__main__":
         model.train(X_train, y_train, X_valid, y_valid)
         print('DONE training!')
         ### Predict
-        test_file = "data/sentiment_corpus_20191108.txt"  # todo 改成正式的测试集
+        test_file = "data/real_senti_demo_nolabel.txt"
         df_test = pd.read_csv(test_file, encoding='utf-8', sep='\t', names=['content'])
         df_test['content_id'] = range(len(df_test))
         X_test, _ = preprocess_data(df_test)

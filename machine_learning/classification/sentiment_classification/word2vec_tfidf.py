@@ -3,11 +3,13 @@
 # Created by: 2019/11/13
 import pandas as pd
 import numpy as np
+from collections import Counter
 import xgboost
 from sklearn import model_selection
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 import codecs
 import json
@@ -18,6 +20,7 @@ from gensim.models import KeyedVectors, TfidfModel
 from gensim.similarities import SparseMatrixSimilarity
 
 from WordVectorFetcher import WordVectorFetcher
+
 
 # NLPTokenizer = JClass("com.hankcs.hanlp.tokenizer.NLPTokenizer")
 def seg(doc):
@@ -88,8 +91,66 @@ class TfidfWordVectorCombiner:
         return X
 
 
+class EnsembleModel:
+    def __init__(self):
+        self.xgb = xgboost.XGBClassifier(
+            n_estimators=100,
+            n_jobs=-1,
+            objective='multi:softmax',
+            num_class=3,
+            max_depth=3,
+            subsample=0.8,
+            gamma=0
+        )
+        self.lr = LogisticRegression(
+            n_jobs=-1,
+            solver='lbfgs',
+            multi_class='auto',
+            max_iter=500
+        )
+        self.svc = SVC(
+            gamma='scale',
+            kernel='rbf'
+        )
+        self.knn = KNeighborsClassifier(
+            n_neighbors=5,
+            n_jobs=-1
+        )
+
+    def fit(self, X_train, y_train):
+        print('### fitting xgb...')
+        self.xgb.fit(X_train, y_train)
+        print('### fitting svc...')
+        self.svc.fit(X_train, y_train)
+        print('### fitting knn...')
+        self.knn.fit(X_train, y_train)
+        print('### fitting lr...')
+        self.lr.fit(X_train, y_train)
+
+    def predict(self, X_val, y_val=None):
+        n = len(X_val)
+        y_xgb = self.xgb.predict(X_val)
+        y_svc = self.svc.predict(X_val)
+        y_knn = self.knn.predict(X_val)
+        y_lr = self.lr.predict(X_val)
+        y_val_pred = np.concatenate([
+            y_xgb.reshape((n, 1)),
+            y_svc.reshape((n, 1)),
+            y_knn.reshape((n, 1)),
+            y_lr.reshape((n, 1)),
+        ], axis=1)
+        if y_val is not None:
+            print(
+                metrics.accuracy_score(y_true=y_val, y_pred=y_xgb),
+                metrics.accuracy_score(y_true=y_val, y_pred=y_svc),
+                metrics.accuracy_score(y_true=y_val, y_pred=y_knn),
+                metrics.accuracy_score(y_true=y_val, y_pred=y_lr),
+            )
+        y_val_pred = [Counter(i).most_common(1)[0][0] for i in y_val_pred]
+        return y_val_pred
+
+
 if __name__ == '__main__':
-    ### load data
     df_data = pd.read_csv('data/sentiment_corpus_20191108.txt', encoding='utf8', sep='\t', names=['label', 'content'])
     label2id = {'negative': -1, 'neutral': 0, 'positive': 1}
     df_data['content_id'] = range(len(df_data))
@@ -98,12 +159,7 @@ if __name__ == '__main__':
 
     combiner = TfidfWordVectorCombiner()
 
-    xgb = xgboost.XGBClassifier(n_estimators=500, n_jobs=-1)
-    rf = RandomForestClassifier(n_estimators=500, n_jobs=-1)
-    lr = LogisticRegression(n_jobs=-1, solver='lbfgs', multi_class='auto')
-    svc = SVC(gamma='scale', kernel='rbf')
-
-    model = svc
+    model = EnsembleModel()
 
     y_data = df_data['label'].values
     X_data = combiner.fit_transform(df_data)
