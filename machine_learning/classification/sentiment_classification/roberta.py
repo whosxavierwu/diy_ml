@@ -3,6 +3,7 @@
 import codecs
 import os
 
+from sklearn import model_selection
 import keras_radam as Radam
 import pandas as pd
 import numpy as np
@@ -30,42 +31,18 @@ CONFIG = {
     'use_multiprocessing': True,
     'model_dir': os.path.join('tmp/model-bert'),
     'use_gpu': False,
-    # 'trainable_layers': 12,
+    'trainable_layers': 12,  # train only final few layers
 }
 
 
-def split_train_test(data, X_name, y_name, train_size=0.85, test_size=None):
-    """
-    对数据切分成训练集和测试集
-    :param data:
-    :param X_name:特征列
-    :param y_name:标签列
-    :param train_size:训练比例
-    :return:
-    """
-    train_data = []
-    test_data = []
-    if (not train_size) and test_size:
-        train_size = 1 - test_size
-    for i in range(data.shape[0]):
-        if i % 100 < train_size * 100:
-            train_data.append([str(data.loc[i][X_name]), data.loc[i][y_name]])
-        else:
-            test_data.append([str(data.loc[i][X_name]), data.loc[i][y_name]])
-    return np.array(train_data), np.array(test_data)
+class MyTokenizer(Tokenizer):
+    def __init__(self):
+        token_dict = {}
+        with codecs.open(DICT_PATH, 'r', 'utf8') as fin:
+            for line in fin:
+                token_dict[line.strip()] = len(token_dict)
+        super().__init__(token_dict)
 
-
-def seq_padding(X, padding=0):
-    ML = max([len(x) for x in X])
-    return np.array([
-        np.concatenate([x, [padding] * (ML - len(x))])
-        if len(x) < ML
-        else x
-        for x in X
-    ])
-
-
-class OurTokenizer(Tokenizer):
     def _tokenize(self, text):
         R = []
         for c in text:
@@ -78,6 +55,38 @@ class OurTokenizer(Tokenizer):
         return R
 
 
+def seq_padding(X, padding=0):
+    ML = max([len(x) for x in X])
+    return np.array([
+        np.concatenate([x, [padding] * (ML - len(x))])
+        if len(x) < ML
+        else x
+        for x in X
+    ])
+
+
+def preprocess_data(df_data):
+    tokenizer = MyTokenizer()
+    is_training = 'label_id' in df_data.columns
+    X_token_ids, X_segment_ids, Y = [], [], []
+    for _, r in df_data.iterrows():
+        token_ids, segment_ids = tokenizer.encode(first=r['content'][:CONFIG['max_len']])
+        X_token_ids.append(token_ids)
+        X_segment_ids.append(segment_ids)
+        if is_training:
+            if r['label_id'] == -1:
+                y = [1, 0, 0]
+            elif r['label_id'] == 1:
+                y = [0, 0, 1]
+            else:
+                y = [0, 1, 0]
+            Y.append(y)
+    X_token_ids = seq_padding(X_token_ids)
+    X_segment_ids = seq_padding(X_segment_ids)
+    Y = seq_padding(Y) if is_training else None
+    return [X_token_ids, X_segment_ids], Y
+
+
 class BertClassify:
     def __init__(self, is_train=True):
         if is_train:
@@ -85,16 +94,10 @@ class BertClassify:
                 config_file=CONFIG_PATH,
                 checkpoint_file=CHECKPOINT_PATH
             )
-            # for layer in self.bert_model.layers[: -CONFIG['trainable_layers']]:
-            #     layer.trainable = True
-            for layer in self.bert_model.layers:
+            for layer in self.bert_model.layers[-CONFIG['trainable_layers']: ]:
                 layer.trainable = True
         self.model = None
-        token_dict = {}
-        with codecs.open(DICT_PATH, 'r', 'utf8') as fin:
-            for line in fin:
-                token_dict[line.strip()] = len(token_dict)
-        self.tokenizer = OurTokenizer(token_dict=token_dict)
+        self.tokenizer = MyTokenizer()
         self.__build()
         return
 
@@ -110,44 +113,14 @@ class BertClassify:
         self.model = Model([input_layer_1, input_layer_2], output_layer)
 
         self.model.compile(
-            # loss='binary_crossentropy',
             loss='categorical_crossentropy',
-            optimizer=Radam.RAdam(1e-5),  # 用足够小的学习率
+            optimizer=Radam.RAdam(1e-5),
             metrics=['accuracy']
         )
-        self.model.summary()
+        print(self.model.summary())
         return
 
-    def __preprocess(self, data):
-        idxs = list(range(len(data)))
-        np.random.shuffle(idxs)
-        X1, X2, Y = [], [], []
-        for i in idxs:
-            d = data[i]
-            x1, x2 = self.tokenizer.encode(first=d[0][:CONFIG['max_len']])
-            # y = d[1]
-            if d[1] == -1:
-                y = [1, 0, 0]
-            elif d[1] == 1:
-                y = [0, 0, 1]
-            else:
-                y = [0, 1, 0]
-
-            X1.append(x1)
-            X2.append(x2)
-            Y.append(y)
-        X1 = seq_padding(X1)
-        X2 = seq_padding(X2)
-        Y = seq_padding(Y)
-        return [X1, X2], Y
-
-    def train(self, train_data, valid_data):
-        """
-        训练
-        :param train_data:
-        :param valid_data:
-        :return:
-        """
+    def train(self, X_train, Y_train, X_valid, Y_valid):
         save = ModelCheckpoint(
             os.path.join(CONFIG['model_dir'], 'bert.h5'),
             monitor='val_acc',
@@ -164,9 +137,6 @@ class BertClassify:
         )
         callbacks = [save, early_stopping]
 
-        X_train, Y_train = self.__preprocess(train_data)
-        X_valid, Y_valid = self.__preprocess(valid_data)
-
         self.model.fit(
             x=X_train,
             y=Y_train,
@@ -178,27 +148,12 @@ class BertClassify:
         )
         return
 
-    def predict(self, test_data):
-        """
-        预测
-        :param test_data:
-        :return:
-        """
-        X1 = []
-        X2 = []
-        for s in test_data:
-            x1, x2 = self.tokenizer.encode(first=s[:CONFIG['max_len']])
-            X1.append(x1)
-            X2.append(x2)
-        X1 = seq_padding(X1)
-        X2 = seq_padding(X2)
-        predict_results = self.model.predict([X1, X2])
-        return predict_results
+    def predict(self, X_test):
+        Y_test_pred = self.model.predict(X_test)
+        return Y_test_pred
 
     def load(self, model_dir):
-        """
-        load the pre-trained model
-        """
+        # is not tested
         model_path = os.path.join(model_dir, 'bert.h5')
         try:
             graph = tf.Graph()
@@ -220,39 +175,48 @@ class BertClassify:
 
 
 if __name__ == "__main__":
-    # 数据集加载 划分
+    ### Load data
     origin_file = "data/sentiment_corpus_20191108.txt"
-    data = pd.read_csv(origin_file, encoding='utf-8', sep='\t', names=['label', 'text_a'])
-    data['label'] = data['label'].apply(lambda label: {'positive': 1, 'neutral': 0, 'negative': -1}[label])
-    train_data, valid_data = split_train_test(data, 'text_a', 'label', train_size=0.8)
-    # 建模 训练
+    df_data = pd.read_csv(origin_file, encoding='utf-8', sep='\t', names=['label', 'content'])
 
-    tf.debugging.set_log_device_placement(False)
+    label2id = {'negative': -1, 'neutral': 0, 'positive': 1}
+    df_data['content_id'] = range(len(df_data))
+    df_data['label_id'] = df_data['label'].apply(lambda x: label2id[x])
 
-    if CONFIG['use_gpu']:
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        print("Num GPUs Available: ", len(gpus))
-        if gpus:
-            try:
-                for gpu in gpus:
-                    # Currently, memory growth needs to be the same across GPUs
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
-                tf.config.experimental.set_virtual_device_configuration(
-                    gpus[0],
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)]
-                )
-                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-                model = BertClassify(is_train=True)
-                model.train(train_data, valid_data)
-            except RuntimeError as e:
-                print(e)
-    else:
-        with tf.device('/CPU:0'):
-            model = BertClassify(is_train=True)
-            model.train(train_data, valid_data)
-    print('DONE!')
+    ### Split data
+    df_train, df_val = model_selection.train_test_split(
+        df_data,
+        test_size=0.2,
+        # random_state=42,
+        # stratify=df_data['label_id']
+        shuffle=True
+    )
 
+    ### Preprocess data
+    X_train, y_train = preprocess_data(df_train)
+    X_valid, y_valid = preprocess_data(df_val)
 
+    with tf.device('/GPU:0' if CONFIG['use_gpu'] else '/CPU:0'):
+        ### Modeling
+        model = BertClassify(is_train=True)
+        ### Training
+        model.train(X_train, y_train, X_valid, y_valid)
+        print('DONE training!')
+        ### Predict
+        test_file = "data/sentiment_corpus_20191108.txt"  # todo 改成正式的测试集
+        df_test = pd.read_csv(test_file, encoding='utf-8', sep='\t', names=['content'])
+        df_test['content_id'] = range(len(df_test))
+        X_test, _ = preprocess_data(df_test)
+        Y_test_pred = model.predict(X_test)
+        y_test_pred_str = []
+        for y_test_pred in Y_test_pred:
+            if y_test_pred[0] == 1:
+                y_test_pred_str.append('negative')
+            elif y_test_pred[2] == 1:
+                y_test_pred_str.append('positive')
+            else:
+                y_test_pred_str.append('neutral')
+        df_test['label_pred'] = y_test_pred_str
+        df_test.sort_values(['content_id'], ascending=True)[['label_pred', 'content']]\
+            .to_csv('data/test_pred.csv', sep='\t', encoding='utf8')
 
