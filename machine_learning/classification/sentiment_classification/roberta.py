@@ -26,7 +26,7 @@ DICT_PATH = 'tmp/roeberta_zh_L-24_H-1024_A-16/vocab.txt'
 
 CONFIG = {
     'max_len': 500,
-    'batch_size': 1,
+    'batch_size': 16,
     'epochs': 100,
     'use_multiprocessing': True,
     'model_dir': os.path.join('tmp/model-bert'),
