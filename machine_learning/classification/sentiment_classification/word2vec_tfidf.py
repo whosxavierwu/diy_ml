@@ -115,5 +115,9 @@ if __name__ == '__main__':
     X_test = combiner.transform(df_test)
     y_test_pred = model.predict(X_test)
     df_test['label'] = y_test_pred
-    df_test[['label', 'content']].to_csv('data/submission.csv', encoding='utf8', sep='\t', index=False)
+    df_test[['label', 'content']].to_csv(
+        'data/submission.csv',
+        encoding='utf8', sep='\t',
+        index=False, header=False
+    )
 
