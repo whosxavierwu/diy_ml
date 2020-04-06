@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/deep_learning/image/digit_generation" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/deep_learning/image/face_generation" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/machine_learning/classification/sentiment_classification" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/deep_learning/image/classification" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/deep_learning/image/classification/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/image/digit_generation/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/e2e_nlg/e2e-dataset" />
       <excludeFolder url="file://$MODULE_DIR$/deep_learning/text/nlg/data2text/tmp" />
@@ -15,7 +17,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="TestRunnerService">
-    <option name="projectConfiguration" value="pytest" />
     <option name="PROJECT_TEST_RUNNER" value="pytest" />
   </component>
 </module>

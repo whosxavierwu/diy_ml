@@ -7,6 +7,8 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from DataLoader import DataLoader
+
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
@@ -97,37 +99,7 @@ class DenseNet(keras.Model):
         return X
 
 
-class DataLoader():
-    def __init__(self):
-        fashion_mnist = tf.keras.datasets.fashion_mnist
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = fashion_mnist.load_data()
-        self.X_train = np.expand_dims(self.X_train.astype(np.float32) / 255.0, axis=-1)
-        self.X_test = np.expand_dims(self.X_test.astype(np.float32) / 255.0, axis=-1)
-        self.y_train = self.y_train.astype(np.int32)
-        self.y_test = self.y_test.astype(np.int32)
-        self.num_train, self.num_test = self.X_train.shape[0], self.X_test.shape[0]
-
-    def get_batch_train(self, batch_size):
-        index = np.random.randint(0, self.num_train, batch_size)
-        # need to resize images to (224,224)
-        resized_images = tf.image.resize_with_pad(self.X_train[index], 224, 224, )
-        return resized_images.numpy(), self.y_train[index]
-
-    def get_batch_test(self, batch_size):
-        index = np.random.randint(0, self.num_test, batch_size)
-        # need to resize images to (224,224)
-        resized_images = tf.image.resize_with_pad(self.X_test[index], 224, 224, )
-        return resized_images.numpy(), self.y_test[index]
-
-
 if __name__ == '__main__':
-    blk = DenseBlock(2, 10)
-    X = tf.random.uniform((4, 8, 8, 3))
-    Y = blk(X)
-    print(Y.shape)
-    blk = TransitionLayer(10)
-    print(blk(Y).shape)  # TensorShape([4, 4, 4, 10])
-
     net = DenseNet(
         num_init_features=64,
         growth_rate=32,
@@ -136,25 +108,25 @@ if __name__ == '__main__':
         drop_rate=0.5
     )
 
+    # check the output_shape of each layer
     input_shape = (1, 96, 96, 1)
+    net.build(input_shape=input_shape)
+    print(net.summary())
     X = tf.random.uniform(input_shape)
     for blk in net.layers:
         X = blk(X)
         print(blk.name, '\t', X.shape)
-
-    net.build(input_shape=input_shape)
-    print(net.summary())
-
-    batch_size = 16
-    dataLoader = DataLoader()
-    x_batch, y_batch = dataLoader.get_batch_train(batch_size)
-    print("x_batch shape:", x_batch.shape, "y_batch shape:", y_batch.shape)
 
     net.compile(
         optimizer=keras.optimizers.Adam(1e-7),
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
+
+    batch_size = 16
+    dataLoader = DataLoader()
+
+    weight_filename = 'tmp/densenet_weights.h5'
 
     epochs = 1
     num_iter = dataLoader.num_train // batch_size
@@ -163,8 +135,8 @@ if __name__ == '__main__':
             X_batch, y_batch = dataLoader.get_batch_train(batch_size)
             net.fit(X_batch, y_batch)
             if n % 20 == 0:
-                net.save_weights('densenet_weights.h5')
+                net.save_weights(weight_filename)
 
-    net.load_weights('densenet_weights.h5')
+    net.load_weights(weight_filename)
     X_test, y_test = dataLoader.get_batch_test(2000)
     net.evaluate(X_test, y_test, verbose=2)

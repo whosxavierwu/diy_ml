@@ -7,6 +7,8 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from DataLoader import DataLoader
+
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
@@ -69,7 +71,7 @@ class ResnetBlock(layers.Layer):
 class ResNet(keras.Model):
     def __init__(self, num_blocks, **kwargs):
         super().__init__(**kwargs)
-        self.net = keras.Sequential([
+        self.listLayers = [
             layers.Conv2D(64, kernel_size=7, strides=2, padding='same'),
             layers.BatchNormalization(),
             layers.Activation('relu'),
@@ -82,34 +84,13 @@ class ResNet(keras.Model):
 
             layers.GlobalAvgPool2D(),
             layers.Dense(10, activation='softmax')
-        ])
+        ]
         return
 
     def call(self, X, **kwargs):
-        return self.net(X)
-
-
-class DataLoader():
-    def __init__(self):
-        fashion_mnist = tf.keras.datasets.fashion_mnist
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = fashion_mnist.load_data()
-        self.X_train = np.expand_dims(self.X_train.astype(np.float32) / 255.0, axis=-1)
-        self.X_test = np.expand_dims(self.X_test.astype(np.float32) / 255.0, axis=-1)
-        self.y_train = self.y_train.astype(np.int32)
-        self.y_test = self.y_test.astype(np.int32)
-        self.num_train, self.num_test = self.X_train.shape[0], self.X_test.shape[0]
-
-    def get_batch_train(self, batch_size):
-        index = np.random.randint(0, self.num_train, batch_size)
-        # need to resize images to (224,224)
-        resized_images = tf.image.resize_with_pad(self.X_train[index], 224, 224, )
-        return resized_images.numpy(), self.y_train[index]
-
-    def get_batch_test(self, batch_size):
-        index = np.random.randint(0, self.num_test, batch_size)
-        # need to resize images to (224,224)
-        resized_images = tf.image.resize_with_pad(self.X_test[index], 224, 224, )
-        return resized_images.numpy(), self.y_test[index]
+        for layer in self.listLayers:
+            X = layer(X)
+        return X
 
 
 if __name__ == '__main__':
@@ -162,6 +143,8 @@ if __name__ == '__main__':
         metrics=['accuracy']
     )
 
+    weight_filename = 'tmp/resnet_weights.h5'
+
     epochs = 1
     num_iter = dataLoader.num_train // batch_size
     for ep in range(epochs):
@@ -169,8 +152,8 @@ if __name__ == '__main__':
             X_batch, y_batch = dataLoader.get_batch_train(batch_size)
             net.fit(X_batch, y_batch)
             if n % 20 == 0:
-                net.save_weights('resnet_weights.h5')
+                net.save_weights(weight_filename)
 
-    net.load_weights('resnet_weights.h5')
+    net.load_weights(weight_filename)
     X_test, y_test = dataLoader.get_batch_test(2000)
     net.evaluate(X_test, y_test, verbose=2)
