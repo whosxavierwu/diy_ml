@@ -2,23 +2,24 @@
 Trying to DIY some classic machine learning and/or deep learning algorithms, and build my own toolkits.
 
 ## Classification
-1. Logistic Regression (todo)
-2. Random Forest (todo)
-3. XGBoost (todo)
-4. LightGBM (todo)
-5. Image Classification (todo)
-
-## Regression
-1. Linear Regression (todo)
+1. Logistic Regression 
+2. Random Forest 
+3. XGBoost 
+4. LightGBM 
+5. Image Classification 
 
 ## Clustering
-1. K-Means (todo)
+1. K-Means 
 
-## Text
-1. E2E NLG (todo)
-2. Text Summarization (todo)
-3. word2vec (todo)
-4. Bert (todo)
+## Embedding
+1. word2vec 
+2. Bert 
 
-## Image 
-1. Image Captioning (todo)
+## Generation
+1. E2E NLG 
+2. Text Summarization 
+3. Image Captioning 
+
+## Regression
+1. Linear Regression 
+
